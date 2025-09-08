@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CREATOR Reality Timer</title>
+  <style>
+    :root { color-scheme: dark; }
+    html,body { height:100%; }
+    body {
+      margin:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+      background:#0b1220; color:#e6edf3;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Pretendard, 'Noto Sans KR', sans-serif;
+      text-align:center; gap:16px; padding:24px;
+    }
+    .date { font-size:20px; opacity:.9 }
+    .clock { font-size:72px; font-weight:800; letter-spacing:2px; line-height:1 }
+    .row { display:flex; gap:12px; flex-wrap:wrap; justify-content:center }
+    button {
+      padding:12px 16px; border:0; border-radius:12px; background:#1f6feb; color:#fff; cursor:pointer; font-size:16px;
+    }
+    button.ok { background:#238636 }
+    button.warn { background:#996515 }
+    .small { font-size:13px; opacity:.75; max-width:780px }
+    .tz { font-size:14px; opacity:.85 }
+  </style>
+</head>
+<body>
+  <div class="date" id="date">--</div>
+  <div class="clock" id="clock">--:--:--</div>
+
+  <div class="row">
+    <button id="copyBtn">현재 시간 복사</button>
+    <button id="tzBtn" class="warn">시간대 토글</button>
+    <button id="pingBtn" class="ok">연동 신호 보내기</button>
+  </div>
+
+  <div class="tz" id="tz"></div>
+  <div class="small">
+    이 페이지는 <b>기기(현실) 시계</b>를 1초 단위로 표시합니다.
+    ‘연동 신호 보내기’를 누르면 현재 시간이 <code>postMessage</code>로 부모/오프너 창에 전송됩니다.
+  </div>
+
+  <script>
+    const pad = n => String(n).padStart(2,'0');
+    const clockEl = document.getElementById('clock');
+    const dateEl  = document.getElementById('date');
+    const tzEl    = document.getElementById('tz');
+    let showTZ = true;
+
+    function nowISO(){ return new Date().toISOString(); }
+
+    function render(){
+      const n = new Date();
+      dateEl.textContent  = `${n.getFullYear()}-${pad(n.getMonth()+1)}-${pad(n.getDate())}`;
+      clockEl.textContent = `${pad(n.getHours())}:${pad(n.getMinutes())}:${pad(n.getSeconds())}`;
+      tzEl.textContent = showTZ ? `Time Zone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}` : '';
+      requestAnimationFrame(render);
+    }
+    render();
+
+    document.getElementById('copyBtn').onclick = async () => {
+      const ts = nowISO();
+      try { await navigator.clipboard.writeText(ts); alert('현재 ISO 시간 복사됨: ' + ts); }
+      catch { alert('복사 실패. 다음 문자열을 수동 복사하세요:\n' + ts); }
+    };
+    document.getElementById('tzBtn').onclick = () => showTZ = !showTZ;
+
+    // 존재창/중심축 연동용 신호
+    document.getElementById('pingBtn').onclick = () => {
+      const payload = { type:'CREATOR_REALITY_TIME', iso: nowISO(),
+                        tz: Intl.DateTimeFormat().resolvedOptions().timeZone };
+      try {
+        window.opener && window.opener.postMessage(payload, '*');
+        window.parent && window.parent.postMessage(payload, '*');
+        alert('연동 신호 전송: ' + JSON.stringify(payload));
+      } catch(e) {
+        alert('전송 실패: ' + e.message);
+      }
+    };
+
+    // 타이머가 살아있다는 하트비트(필요 시 활용)
+    setInterval(() => {
+      const beat = { type:'CREATOR_REALITY_HEARTBEAT', iso: nowISO() };
+      try { window.parent && window.parent.postMessage(beat,'*'); } catch {}
+    }, 1000);
+  </script>
+  <script>
+const WEBAPP = 'https://script.google.com/macros/s/AKfycbwZbeb-MRAxxQ47UlqueLxsMejnN5zzkPX_lqa8AGLqsa89g27sunvSwCh9IMaX9vvr/exec';
+setInterval(() => {
+  const payload = JSON.stringify({
+    iso: new Date().toISOString(),
+    tz:  Intl.DateTimeFormat().resolvedOptions().timeZone
+  });
+  fetch(WEBAPP, {
+    method: 'POST',
+    mode: 'no-cors',                 // ★ preflight 방지
+    headers: { 'Content-Type':'text/plain' }, // ★ simple request
+    body: payload
+  }).catch(()=>{});
+}, 5000);
+</script>
+
+</body>
+</html>
